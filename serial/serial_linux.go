@@ -1,6 +1,6 @@
 package serial
 
-import ( "syscall"; "os"; "unsafe"; "fmt"; "strconv"; "strings" )
+import ( "syscall"; "os"; "unsafe"; "strings"; "strconv" )
 
 // #include <unistd.h>
 // #include <sys/termios.h>
@@ -71,7 +71,6 @@ func (s *Serial) Flush() {
 
 func (s *Serial) Write(buf []byte) {
 	if s.Opened && (len(buf) > 0) {
-		fmt.Println( len(buf) )
 		s.f.Write( buf )
 	}
 }
@@ -83,7 +82,7 @@ func (s *Serial) Read(n uint32) []byte {
 		if (n > 0) && (n < size) { size = n }
 		if (size > 0) {
 			buf1 := make( []byte, size, size )
-			_, err := s.f.Read( buf )
+			_, err := s.f.Read( buf1 )
 			if ( err == nil ) { buf = buf1 }
 		}
 	}
@@ -376,35 +375,27 @@ func (s *Serial) RI() uint8 {
 func (s *Serial) GetKeys() []string {
 	return []string{"name","opened","baud","bits","stops","parity","dtr","dsr","rts","cts","dcd","ri"}
 }
-func (s *Serial) GetStr( key string ) string {
+func (s *Serial) GetAttr( key string ) string {
 	val := ""
 	switch strings.ToLower(key) {
 		case "name":   val = s.Name
 		case "opened": val = strconv.FormatBool(s.Opened)
 		
-		case "baud":   val = string(s.Baud())
-		case "bits":   val = string(s.Bits())
-		case "stops":  val = string(s.Stops())
+		case "baud":   val = strconv.Itoa(int(s.Baud()))
+		case "bits":   val = strconv.Itoa(int(s.Bits()))
+		case "stops":  val = strconv.Itoa(int(s.Stops()))
 		case "parity": val = s.Parity()
 		
-		case "dtr":    val = string(s.DTR())
-		case "dsr":    val = string(s.DSR())
-		case "rts":    val = string(s.RTS())
-		case "cts":    val = string(s.CTS())
-		case "dcd":    val = string(s.DCD())
-		case "ri":     val = string(s.RI())
+		case "dtr":    val = strconv.Itoa(int(s.DTR()))
+		case "dsr":    val = strconv.Itoa(int(s.DSR()))
+		case "rts":    val = strconv.Itoa(int(s.RTS()))
+		case "cts":    val = strconv.Itoa(int(s.CTS()))
+		case "dcd":    val = strconv.Itoa(int(s.DCD()))
+		case "ri":     val = strconv.Itoa(int(s.RI()))
 	}
 	return val
 }
-func (s *Serial) GetStrs( keys []string ) []string {
-	var vals []string
-	for _,key := range keys {
-		vals = append(vals, s.GetStr(key))
-	}
-	return vals
-}
-
-func (s *Serial) SetStr( key string, val string ) {
+func (s *Serial) SetAttr( key string, val string ) {
 	switch strings.ToLower(key) {
 		case "baud":
 			val,err := strconv.ParseInt(val, 0, 32)
@@ -432,8 +423,15 @@ func (s *Serial) SetStr( key string, val string ) {
 	}
 }
 
-func (s *Serial) SetStrs( keys []string, vals []string ) {
+func (s *Serial) GetAttrs( keys []string ) []string {
+	var vals []string
+	for _,key := range keys {
+		vals = append(vals, s.GetAttr(key))
+	}
+	return vals
+}
+func (s *Serial) SetAttrs( keys []string, vals []string ) {
 	for i,key := range keys {
-		s.SetStr( key, vals[i] )
+		s.SetAttr( key, vals[i] )
 	}
 }
