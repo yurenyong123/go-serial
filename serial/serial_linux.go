@@ -7,18 +7,37 @@ import ( "syscall"; "os"; "unsafe"; "strings"; "strconv" )
 // #include <sys/ioctl.h>
 import "C"
 
-func getTermios(f *os.File, dst *C.struct_termios) {
-    syscall.Syscall( syscall.SYS_IOCTL, uintptr(f.Fd()), uintptr(C.TCGETS), uintptr(unsafe.Pointer(dst)))
-}
-
-func setTermios(f *os.File, src *C.struct_termios) {
-    syscall.Syscall( syscall.SYS_IOCTL, uintptr(f.Fd()), uintptr(C.TCSETS), uintptr(unsafe.Pointer(src)))
-}
 
 type Serial struct {
 	SerialBase
 	f *os.File
 }
+
+
+var portsPrefixes = []string{"/dev/ttyS","/dev/ttyACM","/dev/ttyUSB","/dev/rfcomm"}
+const portsMaxNum = 32
+var ports []string
+func ScanPorts() {
+	for _,pref := range portsPrefixes {
+		for suf:=0; suf<=portsMaxNum; suf++ {
+			fn := pref + strconv.Itoa( suf )
+			_, err := os.Stat( fn )
+			if err == nil {
+				ports = append( ports, fn )
+			}
+		}
+	}
+}
+func GetPorts() []string { return ports }
+
+
+func getTermios(f *os.File, dst *C.struct_termios) {
+    syscall.Syscall( syscall.SYS_IOCTL, uintptr(f.Fd()), uintptr(C.TCGETS), uintptr(unsafe.Pointer(dst)))
+}
+func setTermios(f *os.File, src *C.struct_termios) {
+    syscall.Syscall( syscall.SYS_IOCTL, uintptr(f.Fd()), uintptr(C.TCSETS), uintptr(unsafe.Pointer(src)))
+}
+
 
 func (s *Serial) Open( name string ) bool {
 	if ( !s.Opened ) {
@@ -44,13 +63,13 @@ func (s *Serial) Open( name string ) bool {
 	}
 	return s.Opened
 }
-
 func (s *Serial) Close() {
 	if s.Opened {
 		s.f.Close()
 		s.Opened = false
 	}
 }
+
 
 func (s *Serial) Available() uint32 {
 	if (s.Opened) {
@@ -61,7 +80,6 @@ func (s *Serial) Available() uint32 {
 	}
 	return 0
 }
-
 func (s *Serial) Flush() {
 	if (s.Opened) {
 //		syscall.Syscall( syscall.SYS_IOCTL, uintptr(s.f.Fd()), uintptr(TCFLSH), uintptr(C.TCIOFLUSH) )
@@ -69,11 +87,6 @@ func (s *Serial) Flush() {
 	}
 }
 
-func (s *Serial) Write(buf []byte) {
-	if s.Opened && (len(buf) > 0) {
-		s.f.Write( buf )
-	}
-}
 
 func (s *Serial) Read(n uint32) []byte {
 	buf := []byte{}
@@ -88,6 +101,12 @@ func (s *Serial) Read(n uint32) []byte {
 	}
 	return buf
 }
+func (s *Serial) Write(buf []byte) {
+	if s.Opened && (len(buf) > 0) {
+		s.f.Write( buf )
+	}
+}
+
 
 func (s *Serial) Baud() uint32 {
 	var baud uint32 = 0
@@ -130,7 +149,6 @@ func (s *Serial) Baud() uint32 {
 	}
 	return baud
 }
-
 func (s *Serial) SetBaud(b uint32) {
     if s.Opened {
 	    var tios C.struct_termios
@@ -179,6 +197,7 @@ func (s *Serial) SetBaud(b uint32) {
 	}
 }
 
+
 func (s *Serial) Bits() uint8 {
 	var bits uint8 = 0
     if s.Opened {
@@ -194,7 +213,6 @@ func (s *Serial) Bits() uint8 {
     }
     return bits
 }
-
 func (s *Serial) SetBits(b uint8) {
     if s.Opened {
     	switch b {
@@ -226,7 +244,6 @@ func (s *Serial) Stops() uint8 {
     }
     return stops
 }
-
 func (s *Serial) SetStops(stops uint8) {
     if s.Opened {
 	    var tios C.struct_termios
@@ -254,7 +271,6 @@ func (s *Serial) Parity() string {
 	}
 	return parity
 }
-
 func (s *Serial) SetParity(p string) {
     if s.Opened {
 	    var tios C.struct_termios
@@ -273,6 +289,7 @@ func (s *Serial) SetParity(p string) {
 		setTermios(s.f, &tios)
 	}
 }
+
 
 func (s *Serial) DTR() uint8 {
 	var dtr uint8 = 0
@@ -311,7 +328,6 @@ func (s *Serial) RTS() uint8 {
     }
     return rts
 }
-
 func (s *Serial) SetRTS(state uint8) {
     if s.Opened {
     	var status uint
@@ -372,6 +388,7 @@ func (s *Serial) RI() uint8 {
     return ri
 }
 
+
 func (s *Serial) GetKeys() []string {
 	return []string{"name","opened","baud","bits","stops","parity","dtr","dsr","rts","cts","dcd","ri"}
 }
@@ -422,7 +439,6 @@ func (s *Serial) SetAttr( key string, val string ) {
 			if (err == nil) { s.SetRTS( uint8( val )) }
 	}
 }
-
 func (s *Serial) GetAttrs( keys []string ) []string {
 	var vals []string
 	for _,key := range keys {
@@ -430,8 +446,8 @@ func (s *Serial) GetAttrs( keys []string ) []string {
 	}
 	return vals
 }
-func (s *Serial) SetAttrs( keys []string, vals []string ) {
-	for i,key := range keys {
-		s.SetAttr( key, vals[i] )
+func (s *Serial) SetAttrs( attrs map[string]string ) {
+	for k,v := range attrs {
+		s.SetAttr( k, v )
 	}
 }
